@@ -1,5 +1,5 @@
 import re
-from bs4 import BeautifulSoup
+from bs4 import BeautifulSoup, NavigableString
 from lxml import etree
 from collections import deque
 from io import StringIO
@@ -13,15 +13,16 @@ html_doc = '''<div id="root">
       <div id="product_price">$4.99</div>
       </div>
       <div id="product_rate">4.7</div>
-      <div id="product_description"><div id="product_rate">Bring out the best in your gaming performance.</div></div>
+      <div id="product_description">Bring out the best in your gaming performance.</div>
     </div>
-  </div>
+    </div>
 </div>
 '''
 
 def clear_innertext(soup):
-    for k in soup.findChild():
-        k.extract()
+    first_child = soup.children[0]
+    if isinstance(first_child, NavigableString):
+        first_child.extract()
 
 class HTMLElement():
     def __init__(self, name, attr, full_body,text):
@@ -44,11 +45,9 @@ def crop_string(str,max_length):
 
 
 # print(crop_string(html_doc,230))
-max_length = 180
+max_length = 182
 
-def get_occurance(l_1,l_2):
-    l = set(l_2)
-    return next(i for i in l_1 if i in l)
+
 
 parser = etree.HTMLParser()
 str_cur = crop_string(html_doc,35)
@@ -70,41 +69,62 @@ soup = BeautifulSoup(html_doc, 'html.parser')
 # while soup.findChild is not None:
 f = open("demo.txt", "a")
 
-stack = deque()
-leng = 0
 
-for tag in soup.find_all(True):
-    # print(tag.string.replace_with(''))
-        current_fb = str(tag).split('>')[0] +">"
-        current_text = (str(tag).split('>')[1].split('<')[0])
-        new_elem = HTMLElement(tag.name, tag.   attrs,current_fb,current_text)
-        leng+=new_elem.length()
-        # print(leng)
+def process(soup):
+    stack = deque()
+    leng = 0
+    for tag in soup.find_all(True):
+            current_fb = str(tag).split('>')[0] +">"
+            current_text = (str(tag).split('>')[1].split('<')[0])
+            new_elem = HTMLElement(tag.name, tag.   attrs,current_fb,current_text)
+            leng+=new_elem.length()
 
-        if leng>max_length:
-            s = ""
-            root_elem = stack.popleft()
-            s+=root_elem.to_string()
-            while len(stack) >0:
-                el = stack.popleft()
-                s+=el.to_string()
-                cur_tag = soup.find(el.name,attrs=el.attr)
-                if cur_tag.findChild() is None:
-                    cur_tag.decompose()
-                else:
-                    clear_innertext(cur_tag)
-            html_root   = etree.fromstring(s, parser)
-            cur = etree.tostring(html_root,pretty_print=True,method="html")
-            s = BeautifulSoup(cur,'html.parser')
-            f.write(str(s.find(root_elem.name,attrs=root_elem.attr)))
-            f.write('\n-----------\n')
-            break
-        else:
-            stack.append(new_elem)
+            if leng>max_length:
+                s = ""
+                root_elem = stack.popleft()
+                s+=root_elem.to_string()
+                while len(stack) >0:
+                    el = stack.popleft()
+                    s+=el.to_string()
+                    cur_tag = soup.find(el.name,attrs=el.attr)
+                    if cur_tag is not None:
+                        if cur_tag.findChild() is None:
+                            cur_tag.decompose()
+                        else:
+                            clear_innertext(cur_tag)
+                html_root   = etree.fromstring(s, parser)
+                cur = etree.tostring(html_root,pretty_print=True,method="html")
+                s = BeautifulSoup(cur,'html.parser')
+                res = s.find(root_elem.name,attrs=root_elem.attr)
+                print(len(str(res)))
+                f.write(str(res.prettify()))
+                f.write('\n-----------\n')
+                break
+            else:
+                stack.append(new_elem)
 
+html2 = '''<div id="root">
+ <div id="products">
+  <div class="product">Test<div id="product_name"></div><div id="product_rate">4.7</div><div id="product_description">Bring out the best in your gaming performance.</div>
+  </div>
+ </div>
+</div>
+'''
 
+soup3 = BeautifulSoup(html2, 'html.parser')
+test = soup3.find('div',attrs={'class':'product'})
 
-f.write(str(soup))
+print(test.prettify())
+
+for ch in test.children:
+    if isinstance(ch, NavigableString):
+        ch.extract()
+    break
+
+print(test.prettify())
+
+# print(clear_innertext(test))
+# f.write(str(soup.prettify()))
 # f.close()
 # k = soup.find('div',attrs={'id':'product_name'})
 # k.string.replace_with('')
