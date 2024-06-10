@@ -9,6 +9,7 @@ packages = [{include = "html_parser"}]
 [tool.poetry.dependencies]
 python = "^3.12"
 beautifulsoup4 = "^4.12.3"
+lxml = "^5.2.2"
 
 
 [build-system]
