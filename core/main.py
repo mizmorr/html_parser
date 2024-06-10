@@ -1,23 +1,7 @@
-import re
 from bs4 import BeautifulSoup, NavigableString
 from lxml import etree
 from collections import deque
 import sys
-
-html_doc = '''<div id="root">
-  <div id="products">
-    <div class="product">
-      <div id="product_name">
-      Dark Red Energy Potion
-      <div id="product_price">$4.99</div>
-      </div>
-      <div id="product_rate">4.7</div>
-      <div id="product_description">Bring out the best in your gaming performance.</div>
-    </div>
-    </div>
-</div>
-'''
-
 
 
 class HTMLElement():
@@ -35,9 +19,10 @@ class HTMLElement():
 
 
 class HTML_parser():
-    def __init__(self,soup,source):
-        self.soup = BeautifulSoup(soup, 'html.parser')
+    def __init__(self,source):
         self.source = source
+        self.soup = BeautifulSoup(self.read_html(),'html.parser')
+
 
     def clear_innertext(self,soup):
         if soup.findChildren is not None:
@@ -51,6 +36,9 @@ class HTML_parser():
     def set_soup(self,soup):
         self.soup = soup
 
+    def get_soup(self):
+        return self.soup
+
     def make_crop(self,max_length):
         stack = deque()
         leng = 0
@@ -60,7 +48,6 @@ class HTML_parser():
             current_text = (str(tag).split('>')[1].split('<')[0])
             new_elem = HTMLElement(tag.name, tag.   attrs,current_fb,current_text)
             leng+=new_elem.length()
-
             if leng>max_length:
                 pre_str = ""
                 root_elem = stack.popleft()
@@ -75,33 +62,37 @@ class HTML_parser():
                             cur_tag.decompose()
                         else:
                             if len(stack)==0:
-                                return "","This fragment can not be splitted because of nesting"
+                                return "",0,"This fragment can not be splitted because of nesting"
                             self.clear_innertext(cur_tag)
                 html_root = etree.fromstring(pre_str, parser)
                 cur = etree.tostring(html_root,method="html")
                 s_oup = BeautifulSoup(cur,'html.parser')
                 result = s_oup.find(root_elem.name,attrs=root_elem.attr)
-                return result.prettify(),""
+                return result.prettify(),len(str(result)),None
             else:
                 stack.append(new_elem)
 
-    def crop_html(self,max_length):
-        f = open(self.source, "w")
-        while len(str(self.soup))>max_length:
-            cropped,error = self.make_crop(max_length)
-            if error == "":
-                f.write(cropped)
-                f.write('\n--------\n')
-            print("error caught: "+error)
-        f.write(str(self.soup))
+    def read_html(self):
+        f = open(self.source,"r")
+        html = f.read()
         f.close()
+        return html
 
+    def crop_html(self,max_length):
+        number = 0
+        while len(str(self.soup))>max_length:
+            cropped,length,error = self.make_crop(max_length)
+            if error is None:
+                print(f"fragment #{number}: {length} chars\n"+cropped)
+            else:
+                print("error caught: "+error)
+                return
+            number+=1
+        print(f"fragment #{number}: {len(str(self.soup))} chars\n"+self.soup.prettify())
 
 
 if __name__ == "__main__":
-
-    max_length = sys.argv[1].split("=")[1]
+    max_length = int(sys.argv[1].split("=")[1])
     source = sys.argv[2]
-    print(max_length,source)
-    parser = HTML_parser(html_doc,source)
+    parser = HTML_parser(source)
     parser.crop_html(max_length)
